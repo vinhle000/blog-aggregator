@@ -4,9 +4,10 @@ import {
   createUser,
   deleteAllUsers,
   getUserByName,
+  getUserById,
   getUsers,
 } from '../lib/db/queries/users.js';
-import { createFeed } from '../lib/db/queries/feeds.js';
+import { createFeed, getFeeds } from '../lib/db/queries/feeds.js';
 import { fetchFeed } from 'src/lib/rss/index.js';
 import { type Feed, User } from 'src/lib/db';
 
@@ -114,12 +115,28 @@ async function handlerAddFeed(
   printFeed(feed, user);
 }
 
+async function handlerGetAllFeeds(): Promise<void> {
+  const feeds: Feed[] = await getFeeds();
+
+  for (const feed of feeds) {
+    const user: User = await getUserById(feed.userId);
+    if (!user) {
+      throw new Error(`User does not exit`);
+    }
+
+    console.log(`name: ${feed.name}`);
+    console.log(`url: ${feed.url}`);
+    console.log(`createdByUser: ${user.name}`);
+  }
+}
+
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
 registerCommand('users', handlerGetUsers);
 registerCommand('agg', handlerAggregate);
 registerCommand('addfeed', handlerAddFeed);
+registerCommand('feeds', handlerGetAllFeeds);
 
 /*
  helper function called printFeed that takes a Feed and User and logs the fields to the console.
