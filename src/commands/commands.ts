@@ -1,5 +1,9 @@
 import { setUser } from '../config.js';
-import { createUser, getUserByName } from '../lib/db/queries/users.js';
+import {
+  createUser,
+  deleteAllUsers,
+  getUserByName,
+} from '../lib/db/queries/users.js';
 
 export type CommandHandler = (
   cmdName: string,
@@ -44,5 +48,15 @@ async function handlerLogin(cmdName: string, ...args: string[]): Promise<void> {
   console.log(`user has been set to: ${username}`);
 }
 
+async function handlerDeleteAllUsers(cmdName: string, ...args): Promise<void> {
+  const result = await deleteAllUsers();
+  if (result.length > 0) {
+    console.log(`${result.length} user(s) were deleted from table`);
+  } else {
+    console.log(`No users in table to delete`);
+  }
+}
+
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
+registerCommand('reset', handlerDeleteAllUsers);

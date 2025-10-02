@@ -4,7 +4,7 @@ import { readConfig } from './src/config.ts';
 const config = readConfig();
 
 export default defineConfig({
-  schema: './src/lib/db/schema.ts',
+  schema: 'src/lib/db/schema.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
