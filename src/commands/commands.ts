@@ -6,7 +6,9 @@ import {
   getUserByName,
   getUsers,
 } from '../lib/db/queries/users.js';
-import { fetchFeed } from 'src/lib/rss/fetch.js';
+import { createFeed } from '../lib/db/queries/feeds.js';
+import { fetchFeed } from 'src/lib/rss/index.js';
+import { type Feed, User } from 'src/lib/db';
 
 export type CommandHandler = (
   cmdName: string,
@@ -41,8 +43,6 @@ async function handlerLogin(cmdName: string, ...args: string[]): Promise<void> {
   if (!args[0]) {
     throw new Error(`username is required for login`);
   }
-
-  const username = args[0];
 
   const existing = await getUserByName(username);
   if (!existing) throw new Error('user does not exist');
@@ -84,8 +84,51 @@ async function handlerAggregate(
   console.log(JSON.stringify(rssFeed, null, 2));
 }
 
+/*
+name: The name of the feed
+  - name of the feed (like "The Changelog, or "The Boot.dev Blog")
+url: The URL of the feed
+  - https://www.wagslane.dev/index.xml
+shell cmd:
+npm run start addFeed "The Boot.dev Blog" https://www.wagslane.dev/index.xml
+  */
+async function handlerAddFeed(
+  cmdName: string,
+  ...args: string[]
+): Promise<void> {
+  const [name, url] = args; // name is name of Feed, not user
+
+  if (!name || !url) {
+    throw new Error(
+      `Either feed name = "${name} or feed url = "${url} missing"`
+    );
+  }
+
+  const { currentUserName } = readConfig();
+  if (!currentUserName) {
+    throw new Error('current user not found from config');
+  }
+  const user: User = await getUserByName(currentUserName);
+  const feed: Feed = await createFeed(name, url, user.id);
+
+  printFeed(feed, user);
+}
+
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
 registerCommand('users', handlerGetUsers);
 registerCommand('agg', handlerAggregate);
+registerCommand('addfeed', handlerAddFeed);
+
+/*
+ helper function called printFeed that takes a Feed and User and logs the fields to the console.
+ Feed and User are types from our schema that we can get with drizzle's type helpers.
+*/
+
+function printFeed(feed: Feed, user: User): void {
+  console.log('============`');
+  console.log(`User ------- \n ${JSON.stringify(user)} \n`);
+  console.log(`Feed ------- \n ${JSON.stringify(feed)} \n ============`);
+}
+//https://www.wagslane.dev/index.xml
