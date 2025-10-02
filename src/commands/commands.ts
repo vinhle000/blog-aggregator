@@ -7,9 +7,10 @@ import {
   getUserById,
   getUsers,
 } from '../lib/db/queries/users.js';
-import { createFeed, getFeeds } from '../lib/db/queries/feeds.js';
+import { createFeed, getFeeds, getFeedByUrl } from '../lib/db/queries/feeds.js';
 import { fetchFeed } from 'src/lib/rss/index.js';
 import { type Feed, User } from 'src/lib/db';
+import { createFeedFollow } from 'src/lib/db/queries/feedFollows.js';
 
 export type CommandHandler = (
   cmdName: string,
@@ -86,10 +87,6 @@ async function handlerAggregate(
 }
 
 /*
-name: The name of the feed
-  - name of the feed (like "The Changelog, or "The Boot.dev Blog")
-url: The URL of the feed
-  - https://www.wagslane.dev/index.xml
 shell cmd:
 npm run start addFeed "The Boot.dev Blog" https://www.wagslane.dev/index.xml
   */
@@ -130,6 +127,36 @@ async function handlerGetAllFeeds(): Promise<void> {
   }
 }
 
+/*-------------
+shell cmd:
+npm run start follow "https://www.wagslane.dev/index.xml"
+----------------*/
+async function setUserToFollowFeed(
+  cmdName: string,
+  ...args: string[]
+): Promise<void> {
+  const url = args[0];
+  //1. get feedID --- getFeedByUrl query
+  const feed: Feed = await getFeedByUrl(url);
+  if (!feed) {
+    throw new Error(`No feed was found for url=${url}`);
+  }
+
+  //2. get userId --- from userName from readConfig()
+  const { currentUserName } = readConfig();
+  if (!currentUserName) {
+    throw new Error('current user not found from config');
+  }
+  const user = await getUserByName(currentUserName);
+
+  //3. associate feed and user --- use createFeedFollow to create a record
+  const feedFollow = await createFeedFollow(feed.id, user.id);
+
+  //4. After record created, print out feedName and currentUser name;
+  console.log(`FeedName: ${feedFollow.feedName}`);
+  console.log(`Username: ${feedFollow.username}`);
+}
+
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
@@ -137,6 +164,7 @@ registerCommand('users', handlerGetUsers);
 registerCommand('agg', handlerAggregate);
 registerCommand('addfeed', handlerAddFeed);
 registerCommand('feeds', handlerGetAllFeeds);
+registerCommand('follow', setUserToFollowFeed);
 
 /*
  helper function called printFeed that takes a Feed and User and logs the fields to the console.
