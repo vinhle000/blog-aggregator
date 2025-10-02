@@ -1,8 +1,9 @@
-import { setUser } from '../config.js';
+import { setUser, readConfig } from '../config.js';
 import {
   createUser,
   deleteAllUsers,
   getUserByName,
+  getUsers,
 } from '../lib/db/queries/users.js';
 
 export type CommandHandler = (
@@ -57,6 +58,22 @@ async function handlerDeleteAllUsers(cmdName: string, ...args): Promise<void> {
   }
 }
 
+async function handlerGetUsers(
+  cmdName: string,
+  ...args: string[]
+): Promise<void> {
+  const result = await getUsers();
+  const { currentUserName } = readConfig();
+  // TODO: get config.currentUser
+
+  for (let user of result) {
+    console.log(
+      `* ${user.name}${user.name === currentUserName ? ' (current)' : ''}`
+    );
+  }
+}
+
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
+registerCommand('users', handlerGetUsers);
