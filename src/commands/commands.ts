@@ -1,3 +1,4 @@
+import { RSSFeed } from 'src/lib/rss/types.js';
 import { setUser, readConfig } from '../config.js';
 import {
   createUser,
@@ -5,6 +6,7 @@ import {
   getUserByName,
   getUsers,
 } from '../lib/db/queries/users.js';
+import { fetchFeed } from 'src/lib/rss/fetch.js';
 
 export type CommandHandler = (
   cmdName: string,
@@ -64,7 +66,6 @@ async function handlerGetUsers(
 ): Promise<void> {
   const result = await getUsers();
   const { currentUserName } = readConfig();
-  // TODO: get config.currentUser
 
   for (let user of result) {
     console.log(
@@ -73,7 +74,18 @@ async function handlerGetUsers(
   }
 }
 
+async function handlerAggregate(
+  cmdName: string,
+  ...args: string[]
+): Promise<void> {
+  const url = args[0] || 'https://www.wagslane.dev/index.xml';
+  const rssFeed: RSSFeed = await fetchFeed(url);
+
+  console.log(JSON.stringify(rssFeed, null, 2));
+}
+
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
 registerCommand('users', handlerGetUsers);
+registerCommand('agg', handlerAggregate);
