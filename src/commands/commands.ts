@@ -10,7 +10,10 @@ import {
 import { createFeed, getFeeds, getFeedByUrl } from '../lib/db/queries/feeds.js';
 import { fetchFeed } from 'src/lib/rss/index.js';
 import { type Feed, User } from 'src/lib/db';
-import { createFeedFollow } from 'src/lib/db/queries/feedFollows.js';
+import {
+  createFeedFollow,
+  getFeedFollowsForUser,
+} from 'src/lib/db/queries/feedFollows.js';
 
 export type CommandHandler = (
   cmdName: string,
@@ -46,11 +49,12 @@ async function handlerLogin(cmdName: string, ...args: string[]): Promise<void> {
     throw new Error(`username is required for login`);
   }
 
-  const existing = await getUserByName(username);
-  if (!existing) throw new Error('user does not exist');
+  const username = args[0];
+  const user = await getUserByName(username);
+  if (!user) throw new Error('user does not exist');
 
-  setUser(username);
-  console.log(`user has been set to: ${username}`);
+  setUser(user.name);
+  console.log(`user has been set to: ${user.name}`);
 }
 
 async function handlerDeleteAllUsers(cmdName: string, ...args): Promise<void> {
@@ -157,6 +161,22 @@ async function setUserToFollowFeed(
   console.log(`Username: ${feedFollow.username}`);
 }
 
+async function handlerFollowing(
+  cmdName: string,
+  ...args: string[]
+): Promise<void> {
+  const { currentUserName } = readConfig();
+  if (!currentUserName) {
+    throw new Error('current user not found from config');
+  }
+  const user = await getUserByName(currentUserName);
+
+  const result = await getFeedFollowsForUser(user.id);
+
+  for (const feedFollow of result) {
+    console.log(feedFollow.feedName);
+  }
+}
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
@@ -165,6 +185,7 @@ registerCommand('agg', handlerAggregate);
 registerCommand('addfeed', handlerAddFeed);
 registerCommand('feeds', handlerGetAllFeeds);
 registerCommand('follow', setUserToFollowFeed);
+registerCommand('following', handlerFollowing);
 
 /*
  helper function called printFeed that takes a Feed and User and logs the fields to the console.
