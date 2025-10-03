@@ -113,6 +113,13 @@ async function handlerAddFeed(
   const user: User = await getUserByName(currentUserName);
   const feed: Feed = await createFeed(name, url, user.id);
 
+  const feedFollow = await createFeedFollow(feed.id, user.id);
+  if (!!feedFollow) {
+    console.log(
+      `user "${feedFollow.username}" now following "${feedFollow.feedName}"`
+    );
+  }
+
   printFeed(feed, user);
 }
 
