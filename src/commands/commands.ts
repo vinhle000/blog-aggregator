@@ -9,14 +9,23 @@ import {
 } from '../lib/db/queries/users.js';
 import { createFeed, getFeeds, getFeedByUrl } from '../lib/db/queries/feeds.js';
 import { fetchFeed } from 'src/lib/rss/index.js';
-import { type Feed, User } from 'src/lib/db';
+import { type Feed, User } from 'src/lib/db/schema.js';
 import {
   createFeedFollow,
   getFeedFollowsForUser,
+  deleteFeedFollow,
 } from 'src/lib/db/queries/feedFollows.js';
+
+import { middlewareLoggedIn } from 'src/middleware/userLoggedIn.js';
 
 export type CommandHandler = (
   cmdName: string,
+  ...args: string[]
+) => Promise<void>;
+
+export type UserCommandHandler = (
+  cmdName: string,
+  user: User,
   ...args: string[]
 ) => Promise<void>;
 
@@ -96,6 +105,7 @@ npm run start addFeed "The Boot.dev Blog" https://www.wagslane.dev/index.xml
   */
 async function handlerAddFeed(
   cmdName: string,
+  user: User,
   ...args: string[]
 ): Promise<void> {
   const [name, url] = args; // name is name of Feed, not user
@@ -106,11 +116,11 @@ async function handlerAddFeed(
     );
   }
 
-  const { currentUserName } = readConfig();
-  if (!currentUserName) {
-    throw new Error('current user not found from config');
-  }
-  const user: User = await getUserByName(currentUserName);
+  // const { currentUserName } = readConfig();
+  // if (!currentUserName) {
+  //   throw new Error('current user not found from config');
+  // }
+  // const user: User = await getUserByName(currentUserName);
   const feed: Feed = await createFeed(name, url, user.id);
 
   const feedFollow = await createFeedFollow(feed.id, user.id);
@@ -144,6 +154,7 @@ npm run start follow "https://www.wagslane.dev/index.xml"
 ----------------*/
 async function setUserToFollowFeed(
   cmdName: string,
+  user: User,
   ...args: string[]
 ): Promise<void> {
   const url = args[0];
@@ -154,11 +165,11 @@ async function setUserToFollowFeed(
   }
 
   //2. get userId --- from userName from readConfig()
-  const { currentUserName } = readConfig();
-  if (!currentUserName) {
-    throw new Error('current user not found from config');
-  }
-  const user = await getUserByName(currentUserName);
+  // const { currentUserName } = readConfig();
+  // if (!currentUserName) {
+  //   throw new Error('current user not found from config');
+  // }
+  // const user = await getUserByName(currentUserName);
 
   //3. associate feed and user --- use createFeedFollow to create a record
   const feedFollow = await createFeedFollow(feed.id, user.id);
@@ -170,13 +181,14 @@ async function setUserToFollowFeed(
 
 async function handlerFollowing(
   cmdName: string,
+  user: User,
   ...args: string[]
 ): Promise<void> {
-  const { currentUserName } = readConfig();
-  if (!currentUserName) {
-    throw new Error('current user not found from config');
-  }
-  const user = await getUserByName(currentUserName);
+  // const { currentUserName } = readConfig();
+  // if (!currentUserName) {
+  //   throw new Error('current user not found from config');
+  // }
+  // const user = await getUserByName(currentUserName);
 
   const result = await getFeedFollowsForUser(user.id);
 
@@ -184,15 +196,36 @@ async function handlerFollowing(
     console.log(feedFollow.feedName);
   }
 }
+
+async function handlerUnfollow(cmdName: string, user: User, ...args: string[]) {
+  // get url from args
+  const url = args[0];
+
+  const feed = await getFeedByUrl(url);
+
+  if (!feed) {
+    throw new Error(`Feed with url "${url}" does not exist`);
+  }
+
+  //check url if feed exits, and get feed id
+  // delete feedFollow record with userId and feedId
+
+  const result = await deleteFeedFollow(user.id, feed.id);
+
+  if (result) {
+    console.log(`Successfully had user unfollow ${feed.name}`);
+  }
+}
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
 registerCommand('users', handlerGetUsers);
 registerCommand('agg', handlerAggregate);
-registerCommand('addfeed', handlerAddFeed);
+registerCommand('addfeed', middlewareLoggedIn(handlerAddFeed)); // checks for user logged in
 registerCommand('feeds', handlerGetAllFeeds);
-registerCommand('follow', setUserToFollowFeed);
-registerCommand('following', handlerFollowing);
+registerCommand('follow', middlewareLoggedIn(setUserToFollowFeed)); //// checks for user logged in
+registerCommand('following', middlewareLoggedIn(handlerFollowing)); // checks for user logged in
+registerCommand('unfollow', middlewareLoggedIn(handlerUnfollow));
 
 /*
  helper function called printFeed that takes a Feed and User and logs the fields to the console.
