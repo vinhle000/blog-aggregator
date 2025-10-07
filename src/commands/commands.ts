@@ -7,7 +7,14 @@ import {
   getUserById,
   getUsers,
 } from '../lib/db/queries/users.js';
-import { createFeed, getFeeds, getFeedByUrl } from '../lib/db/queries/feeds.js';
+import {
+  createFeed,
+  getFeeds,
+  getFeedByUrl,
+  getNextFeedToFetch,
+  markFeedFetched,
+} from '../lib/db/queries/feeds.js';
+import { createPost } from '../lib/db/queries/posts.js';
 import { fetchFeed } from 'src/lib/rss/index.js';
 import { type Feed, User } from 'src/lib/db/schema.js';
 import {
@@ -89,14 +96,83 @@ async function handlerGetUsers(
   }
 }
 
+/*=========
+time_between_reqs is a duration string, like 1s, 1m, 1h, etc.
+
+I created a function to parse the input into milliseconds using:
+    parseDuration(durationStr: string): number
+
+
+ (fully-licensed) RegEx:
+const regex = /^(\d+)(ms|s|m|h)$/;
+const match = durationStr.match(regex);
+======*/
+function parseDuration(durationStr: string): number {
+  const regex = /^(\d+)(ms|s|m|h)$/;
+  const test = regex.test(durationStr);
+
+  if (test) {
+    const match = durationStr.match(regex);
+    console.debug(
+      `[DEBUG] - match results  -------  ${JSON.stringify(match, null, 2)} \n\n`
+    );
+    if (!match) {
+      console.log(`No num or unit of time was found in ${durationStr}`);
+      return 1000 * 60; // 1 minute by default?
+    }
+    const [matchStr, numStr, unit] = match;
+    const num = Number(numStr);
+
+    console.log('match str found ', matchStr);
+    console.log(`num = ${num}    unit = ${unit}`);
+
+    switch (unit) {
+      case 'ms':
+        return num;
+      case 's':
+        return num * 1000;
+      case 'm':
+        return num * 60 * 1000;
+      case 'h':
+        return num * 3600 * 1000;
+      default:
+        return num; // assuming the unit will be converted to milliseconds
+    }
+  }
+
+  console.log(`No num or unit of time was found in ${durationStr}`);
+  return 0;
+}
+// npm run start agg 1m0s
 async function handlerAggregate(
   cmdName: string,
   ...args: string[]
 ): Promise<void> {
-  const url = args[0] || 'https://www.wagslane.dev/index.xml';
-  const rssFeed: RSSFeed = await fetchFeed(url);
+  // const url = args[0] || 'https://www.wagslane.dev/index.xml';
+  // const rssFeed: RSSFeed = await fetchFeed(url);
+  // TODO: update to take in single arg "time_between_reqs"
 
-  console.log(JSON.stringify(rssFeed, null, 2));
+  const durationStr: string = args[0];
+  const timeBetweenRequests = parseDuration(durationStr);
+  if (!timeBetweenRequests) {
+    throw new Error(`Invalid time_between_reqs ${durationStr}`);
+  }
+
+  console.log(`Collecting feeds every ${timeBetweenRequests}`);
+
+  scrapeFeeds().catch(handleError);
+
+  const interval = setInterval(() => {
+    scrapeFeeds().catch(handleError);
+  }, timeBetweenRequests);
+
+  await new Promise<void>((resolve) => {
+    process.on('SIGINT', () => {
+      console.log('Shutting down feed aggregator...');
+      clearInterval(interval);
+      resolve();
+    });
+  });
 }
 
 /*
@@ -239,4 +315,50 @@ function printFeed(feed: Feed, user: User): void {
   console.log(`User ------- \n ${JSON.stringify(user)} \n`);
   console.log(`Feed ------- \n ${JSON.stringify(feed)} \n ============`);
 }
-//https://www.wagslane.dev/index.xml
+
+function handleError(err: unknown): void {
+  if (err instanceof Error) {
+    console.error(`[ERROR] ${err.message}`);
+    if (err.stack) console.error(err.stack);
+  } else {
+    console.error(`[ERROR] unknown error: `, err);
+  }
+}
+
+export async function scrapeFeeds(): Promise<void> {
+  try {
+    const nextFeed = await getNextFeedToFetch();
+    if (!nextFeed) {
+      console.log(`[agg] found no feeds`);
+      return;
+    }
+    console.log(`[agg] fetching ${nextFeed.name} ${nextFeed.name}`);
+    await markFeedFetched(nextFeed.id);
+
+    const feed: RSSFeed = await fetchFeed(nextFeed.url);
+    console.log(`Feed channel title ${feed.channel.title}`);
+    for (const { title, link, description, pubDate } of feed.channel.item) {
+      const newPost = await createPost(
+        title,
+        link,
+        pubDate,
+        description,
+        nextFeed.id
+      );
+
+      if (!newPost) {
+        console.log(`[SKIP] already had post created for ${link} `);
+      }
+
+      console.log(
+        `POST CREATED for --------- \n ${JSON.stringify(
+          newPost,
+          null,
+          2
+        )} \n\n\n`
+      );
+    }
+  } catch (error) {
+    console.error('Error occurred scraping feeds: ', error);
+  }
+}

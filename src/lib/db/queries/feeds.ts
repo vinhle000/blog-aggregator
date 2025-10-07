@@ -57,22 +57,30 @@ export async function getNextFeedToFetch(): Promise<Feed> {
   return result;
 }
 
-export async function scrapeFeeds(): Promise<void> {
-  try {
-    const nextFeed = await getNextFeedToFetch();
-    await markFeedFetched(nextFeed.id);
-    const feed: RSSFeed = await fetchFeed(nextFeed.url);
+// export async function scrapeFeeds(): Promise<void> {
+//   try {
+//     const nextFeed = await getNextFeedToFetch();
+//     if (!nextFeed) {
+//       console.log(`[agg] found no feeds`);
+//       return;
+//     }
+//     console.log(`[agg] fetching ${nextFeed.name} ${nextFeed.name}`);
+//     await markFeedFetched(nextFeed.id);
 
-    for (const feedItem of feed.channel.item) {
-      console.log(`Title: ${feedItem.title}`);
-    }
-  } catch (error) {
-    console.error('Error occurred scraping feeds: ', error);
-  }
-}
-scrapeFeeds().then((res) =>
-  console.log(`Result scrape ----->  ${JSON.stringify(res, null, 2)}    \n\n`)
-);
+//     const feed: RSSFeed = await fetchFeed(nextFeed.url);
+//     console.log(`Feed channel title ${feed.channel.title}`);
+//     for (const feedItem of feed.channel.item) {
+//       console.log(`Title: ${feedItem.title}`);
+//       console.log(`Published at date: ${feedItem.pubDate}`);
+//       console.log(`converted time ===>  ${new Date(feedItem.pubDate)}`);
+//     }
+//   } catch (error) {
+//     console.error('Error occurred scraping feeds: ', error);
+//   }
+// }
+// scrapeFeeds().then((res) =>
+//   console.log(`Result scrape ----->  ${JSON.stringify(res, null, 2)}    \n\n`)
+// );
 //   .catch((err) => console.error('error occured fetching next feeds:  ', err));
 // ``;
 // https://blog.boot.dev/index.xml
