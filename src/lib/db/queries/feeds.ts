@@ -1,5 +1,7 @@
 import { db } from '..';
 import { feeds, type Feed } from '../schema';
+import { RSSFeed, RSSItem } from 'src/lib/rss/types';
+import { fetchFeed } from '../../rss';
 import { eq, sql } from 'drizzle-orm';
 
 export async function createFeed(
@@ -55,16 +57,22 @@ export async function getNextFeedToFetch(): Promise<Feed> {
   return result;
 }
 
-// getNextFeedToFetch()
-//   .then((res) =>
-//     console.log(
-//       `Result getNextFeedToFetch ----->  ${JSON.stringify(
-//         res,
-//         null,
-//         2
-//       )}    \n\n`
-//     )
-//   )
+export async function scrapeFeeds(): Promise<void> {
+  try {
+    const nextFeed = await getNextFeedToFetch();
+    await markFeedFetched(nextFeed.id);
+    const feed: RSSFeed = await fetchFeed(nextFeed.url);
+
+    for (const feedItem of feed.channel.item) {
+      console.log(`Title: ${feedItem.title}`);
+    }
+  } catch (error) {
+    console.error('Error occurred scraping feeds: ', error);
+  }
+}
+scrapeFeeds().then((res) =>
+  console.log(`Result scrape ----->  ${JSON.stringify(res, null, 2)}    \n\n`)
+);
 //   .catch((err) => console.error('error occured fetching next feeds:  ', err));
 // ``;
 // https://blog.boot.dev/index.xml
