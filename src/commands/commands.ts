@@ -112,7 +112,7 @@ async function handlerAddFeed(
 
   if (!name || !url) {
     throw new Error(
-      `Either feed name = "${name} or feed url = "${url} missing"`
+      `Either feed name = "${name} or feed url = "${url}" missing`
     );
   }
 
@@ -216,6 +216,7 @@ async function handlerUnfollow(cmdName: string, user: User, ...args: string[]) {
     console.log(`Successfully had user unfollow ${feed.name}`);
   }
 }
+
 registerCommand('register', handlerRegister);
 registerCommand('login', handlerLogin);
 registerCommand('reset', handlerDeleteAllUsers);
@@ -227,12 +228,13 @@ registerCommand('follow', middlewareLoggedIn(setUserToFollowFeed)); //// checks 
 registerCommand('following', middlewareLoggedIn(handlerFollowing)); // checks for user logged in
 registerCommand('unfollow', middlewareLoggedIn(handlerUnfollow));
 
-/*
- helper function called printFeed that takes a Feed and User and logs the fields to the console.
- Feed and User are types from our schema that we can get with drizzle's type helpers.
-*/
+/*================
+ helper functions
+==================*/
 
 function printFeed(feed: Feed, user: User): void {
+  //    printFeed that takes a Feed and User and logs the fields to the console.
+  //  Feed and User are types from our schema that we can get with drizzle's type helpers.
   console.log('============`');
   console.log(`User ------- \n ${JSON.stringify(user)} \n`);
   console.log(`Feed ------- \n ${JSON.stringify(feed)} \n ============`);

@@ -1,4 +1,5 @@
 import { pgTable, timestamp, uuid, text, unique } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
@@ -13,13 +14,14 @@ export const users = pgTable('users', {
 export const feeds = pgTable('feeds', {
   id: uuid('id').primaryKey().defaultRandom().notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAT: timestamp('updated_at')
+  updatedAt: timestamp('updated_at')
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
   name: text('name').notNull(),
   url: text('url').notNull().unique(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  lastFetchedAt: timestamp('last_fetched_at').default(sql`NULL`), // Should be nullable
 });
 
 /*=================
